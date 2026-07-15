@@ -1,0 +1,32 @@
+# Single-node Garage config. Garage is designed for geo-distributed
+# multi-node clusters -- this pins it to one node (replication_factor = 1),
+# which is the right shape for a single NAS box but means no redundancy at
+# the object-store layer itself. Redundancy for the underlying data still
+# comes from the DiskWeaver-managed mdadm/LVM pool Garage's data_dir lives
+# on. See https://garagehq.deuxfleurs.fr/documentation/quick-start/ for the
+# multi-node version of this file if that ever changes.
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+# Generate with: openssl rand -hex 32
+# Required before `systemctl start garage` will do anything useful.
+rpc_secret = "REPLACE_ME_GENERATE_WITH_openssl_rand_hex_32"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+root_domain = ".s3.diskweaver-nas"
+
+[s3_web]
+bind_addr = "[::]:3902"
+root_domain = ".web.diskweaver-nas"
+index = "index.html"
+
+[admin]
+api_bind_addr = "127.0.0.1:3903"

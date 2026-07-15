@@ -1,0 +1,50 @@
+#cloud-config
+# Subiquity autoinstall config for Ubuntu Server 26.04 LTS.
+# Docs: https://ubuntu.com/server/docs/install/autoinstall
+#
+# Boot the target from stock Ubuntu Server install media and point it at
+# this file (second USB partition, HTTP served, or PXE — see the
+# autoinstall docs for the delivery mechanism). Installer runs unattended;
+# late-commands clone diskweaver-appliance into the target and hand off to
+# provision/provision.sh.
+autoinstall:
+  version: 1
+
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+
+  # Leave the OS disk alone; DiskWeaver owns everything else. Adjust
+  # `match` if the boot device isn't the smallest/first disk on your
+  # hardware -- this is the one thing worth double-checking per machine.
+  storage:
+    layout:
+      name: direct
+      match:
+        size: smallest
+
+  identity:
+    hostname: diskweaver-nas
+    username: admin
+    # Generate with: mkpasswd --method=SHA-512 --rounds=4096
+    password: "$6$REPLACE_ME_WITH_A_REAL_HASH"
+
+  ssh:
+    install-server: true
+    allow-pw: true
+
+  packages:
+    - git
+    - curl
+
+  late-commands:
+    - >
+      curtin in-target --target=/target -- git clone --depth 1
+      https://github.com/acinep/diskweaver-appliance.git
+      /opt/diskweaver-appliance
+    - >
+      curtin in-target --target=/target -- bash
+      /opt/diskweaver-appliance/provision/provision.sh
+
+  user-data:
+    disable_root: true
