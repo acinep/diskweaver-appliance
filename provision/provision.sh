@@ -6,7 +6,7 @@
 set -euo pipefail
 
 DISKWEAVER_REPO="acinep/DiskWeaver"
-GARAGE_VERSION="REPLACE_ME"               # e.g. v1.0.1 -- see https://garagehq.deuxfleurs.fr/download/
+GARAGE_VERSION="v2.3.0"
 
 log() { echo "[provision] $*"; }
 

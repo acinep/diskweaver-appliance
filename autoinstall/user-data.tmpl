@@ -7,6 +7,13 @@
 # autoinstall docs for the delivery mechanism). Installer runs unattended;
 # late-commands clone diskweaver-appliance into the target and hand off to
 # provision/provision.sh.
+#
+# This file is a TEMPLATE -- it is committed with placeholders and is not
+# meant to be edited in place or served as-is. Before an install, copy it
+# to something gitignored (e.g. `user-data.local`) and fill in:
+#   - identity.password: a real hash (mkpasswd --method=SHA-512 --rounds=4096)
+#   - ssh.authorized-keys: your real public key(s)
+# Serve the local copy to the installer, never the tracked template.
 autoinstall:
   version: 1
 
@@ -26,12 +33,17 @@ autoinstall:
   identity:
     hostname: diskweaver-nas
     username: admin
-    # Generate with: mkpasswd --method=SHA-512 --rounds=4096
+    # Console-only fallback login (SSH below is key-only). Generate a
+    # throwaway password locally, hash it, put the hash here in your
+    # gitignored copy -- never the plaintext, never in git.
+    #   mkpasswd --method=SHA-512 --rounds=4096
     password: "$6$REPLACE_ME_WITH_A_REAL_HASH"
 
   ssh:
     install-server: true
-    allow-pw: true
+    allow-pw: false
+    authorized-keys:
+      - REPLACE_ME_WITH_YOUR_SSH_PUBLIC_KEY
 
   packages:
     - git

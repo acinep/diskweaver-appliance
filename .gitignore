@@ -1,0 +1,7 @@
+# Real per-install secrets rendered from the *.tmpl files -- never commit
+# a password hash, rpc_secret, or SSH key alongside the templates.
+autoinstall/user-data
+autoinstall/user-data.local
+/etc/garage.toml
+provision/garage.toml
+*.local
