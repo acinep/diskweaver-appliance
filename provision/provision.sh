@@ -14,6 +14,7 @@ APPLIANCE_RAW="https://raw.githubusercontent.com/${APPLIANCE_REPO}/master/provis
 GARAGE_VERSION="v2.3.0"
 CFS_VERSION="4.6.1"
 CFS_REPO="45Drives/cockpit-file-sharing"
+ZFS_PLUGIN_VERSION="v1.2.33"
 
 log() { echo "[provision] $*"; }
 
@@ -41,6 +42,25 @@ if ! dpkg -s cockpit-file-sharing >/dev/null 2>&1; then
     rm -f /tmp/cockpit-file-sharing.deb
 else
     log "cockpit-file-sharing already installed, skipping"
+fi
+
+# --- ZFS + cockpit-zfs ----------------------------------------------------
+# cockpit-zfs ships no prebuilt package anywhere reachable from here (see
+# .github/workflows/build-cockpit-zfs.yml for why), so this pulls a
+# tarball we built ourselves in CI from a pinned upstream tag -- no
+# Node/Yarn/make touches this box, just zfsutils-linux and the plugin's
+# plain runtime deps.
+log "installing zfsutils-linux + cockpit-zfs runtime deps"
+apt-get install -y zfsutils-linux python3-libzfs python3-dateutil sqlite3 jq msmtp
+
+if [ ! -d /usr/share/cockpit/zfs ]; then
+    log "installing cockpit-zfs ${ZFS_PLUGIN_VERSION}"
+    curl -sSL -o /tmp/cockpit-zfs.tar.gz \
+        "https://github.com/${APPLIANCE_REPO}/releases/download/cockpit-zfs-${ZFS_PLUGIN_VERSION}/cockpit-zfs-${ZFS_PLUGIN_VERSION}.tar.gz"
+    tar -C / -xzf /tmp/cockpit-zfs.tar.gz
+    rm -f /tmp/cockpit-zfs.tar.gz
+else
+    log "cockpit-zfs already installed, skipping"
 fi
 
 # --- DiskWeaver --------------------------------------------------------------

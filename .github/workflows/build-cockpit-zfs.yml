@@ -1,0 +1,68 @@
+name: Build cockpit-zfs
+
+# 45Drives/cockpit-zfs ships no prebuilt package at all (0 GitHub release
+# assets on any tag) -- its README's "pre-built packages" pointer is to
+# 45Drives' own apt repo, which is codename-gated against anything newer
+# than Debian trixie/Ubuntu jammy (see provision/provision.sh's comment on
+# cockpit-file-sharing for the same issue). So we build it once here,
+# pinned to a specific upstream tag, and publish the result as a release
+# asset in this repo -- provision.sh just downloads that tarball, no
+# Node/Yarn/make toolchain ever touches a provisioned NAS box.
+#
+# To bump the pinned version: push a tag `cockpit-zfs-vX.Y.Z` matching a
+# real tag in 45Drives/cockpit-zfs, and update ZFS_PLUGIN_VERSION in
+# provision/provision.sh to match.
+
+on:
+  push:
+    tags:
+      - "cockpit-zfs-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Derive upstream version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#cockpit-zfs-}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout 45Drives/cockpit-zfs at pinned tag
+        uses: actions/checkout@v4
+        with:
+          repository: 45Drives/cockpit-zfs
+          ref: ${{ steps.version.outputs.version }}
+          path: cockpit-zfs
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable corepack (yarn)
+        run: corepack enable
+
+      - name: Build
+        working-directory: cockpit-zfs
+        run: make
+
+      - name: Install into staging root
+        working-directory: cockpit-zfs
+        run: make DESTDIR="${{ github.workspace }}/stage" install
+
+      - name: Package tarball
+        run: |
+          tar -C stage -czf "cockpit-zfs-${{ steps.version.outputs.version }}.tar.gz" usr/share/cockpit/zfs
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: cockpit-zfs-${{ steps.version.outputs.version }}.tar.gz
+          name: "cockpit-zfs ${{ steps.version.outputs.version }} (rebuilt for diskweaver-appliance)"
+          body: >
+            Unofficial rebuild of 45Drives/cockpit-zfs at
+            ${{ steps.version.outputs.version }}, since upstream ships no
+            prebuilt package. Consumed by provision/provision.sh -- not a
+            45Drives release.

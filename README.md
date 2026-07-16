@@ -2,7 +2,8 @@
 
 Reproducible provisioning for a personal NAS: vanilla Ubuntu Server LTS +
 Cockpit, with [DiskWeaver](https://github.com/acinep/DiskWeaver) for mixed-size RAID
-pooling, 45Drives' `cockpit-file-sharing` for Samba/NFS/S3 management, and
+pooling, `cockpit-zfs` for optional ZFS datasets on top, 45Drives'
+`cockpit-file-sharing` for Samba/NFS/S3 management, and
 [Garage](https://garagehq.deuxfleurs.fr/) as the S3-compatible object
 store.
 
@@ -24,20 +25,28 @@ curl -sSL https://raw.githubusercontent.com/acinep/diskweaver-appliance/master/p
 | Ubuntu Server 26.04 LTS | Base OS |
 | Cockpit | Web admin UI |
 | [DiskWeaver](../DiskWeaver) | Mixed-size RAID pooling (mdadm/LVM), daemon + Cockpit plugin |
+| [`cockpit-zfs`](https://github.com/45Drives/cockpit-zfs) | Optional: ZFS datasets/snapshots on top of a DiskWeaver-managed volume (or, later, a native zpool -- see the repo's own notes on that tradeoff) |
 | [`cockpit-file-sharing`](https://github.com/45Drives/cockpit-file-sharing) | Samba/NFS/iSCSI/S3 management UI (detects Garage as an S3 backend) |
 | [Garage](https://garagehq.deuxfleurs.fr/) | S3-compatible object storage |
 
 ## Layout
 
-- `provision/provision.sh` — idempotent post-install script: adds the
-  45Drives apt repo, installs Cockpit + `cockpit-file-sharing`, installs
-  the latest DiskWeaver `.deb` release, installs Garage, enables
-  everything. Self-contained — fetches `garage.toml.tmpl` by URL, so it
+- `provision/provision.sh` — idempotent post-install script: installs
+  Cockpit + `mdadm`/`lvm2`, the latest DiskWeaver `.deb` release,
+  `cockpit-file-sharing` (downloaded directly, bypassing 45Drives' apt
+  repo -- see the script's own comment), `zfsutils-linux` + `cockpit-zfs`
+  (downloaded from this repo's own Releases, built by CI -- see below),
+  and Garage. Self-contained — fetches `garage.toml.tmpl` by URL, so it
   works piped straight from `curl` with no local checkout needed.
 - `provision/garage.toml.tmpl` — single-node Garage config template.
   `provision.sh` substitutes a freshly generated `rpc_secret`
   (`openssl rand -hex 32`) into it on first run; the tracked file itself
   never holds a real secret.
+- `.github/workflows/build-cockpit-zfs.yml` — `45Drives/cockpit-zfs` ships
+  no prebuilt package anywhere reachable outside their (codename-gated)
+  apt repo. Pushing a `cockpit-zfs-vX.Y.Z` tag here builds that exact
+  upstream tag in CI and publishes the result as a Release asset in this
+  repo, which `provision.sh` then just downloads.
 
 ## Usage
 
