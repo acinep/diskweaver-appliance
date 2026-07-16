@@ -12,22 +12,36 @@ DISKWEAVER_REPO="acinep/DiskWeaver"
 APPLIANCE_REPO="acinep/diskweaver-appliance"
 APPLIANCE_RAW="https://raw.githubusercontent.com/${APPLIANCE_REPO}/master/provision"
 GARAGE_VERSION="v2.3.0"
+CFS_VERSION="4.6.1"
+CFS_REPO="45Drives/cockpit-file-sharing"
 
 log() { echo "[provision] $*"; }
 
-# --- 45Drives apt repo (cockpit-file-sharing) ------------------------------
-if ! grep -rq "repo.45drives.com" /etc/apt/sources.list.d/ 2>/dev/null; then
-    log "adding 45Drives apt repo"
-    curl -sSL https://repo.45drives.com/setup | bash
-fi
-
 apt-get update
 
-# --- Cockpit + file/S3 sharing UI ------------------------------------------
-log "installing cockpit + cockpit-file-sharing"
-apt-get install -y cockpit cockpit-file-sharing mdadm lvm2 parted
+# --- Cockpit ------------------------------------------------------------
+log "installing cockpit"
+apt-get install -y cockpit mdadm lvm2 parted
 
 systemctl enable --now cockpit.socket
+
+# --- cockpit-file-sharing ------------------------------------------------
+# 45Drives' apt repo gates on a hardcoded codename whitelist (jammy/focal/
+# bookworm/trixie) that doesn't include this OS -- but the package itself
+# is `Architecture: all` with plain, unpinned deps (cockpit-bridge,
+# nfs-kernel-server, samba-common-bin, python3-botocore, etc.), all in
+# Ubuntu's own repos. So skip their repo and install the .deb directly;
+# the "jammy" build tag in the filename is just their versioning scheme,
+# not an OS dependency.
+if ! dpkg -s cockpit-file-sharing >/dev/null 2>&1; then
+    log "installing cockpit-file-sharing ${CFS_VERSION}"
+    curl -sSL -o /tmp/cockpit-file-sharing.deb \
+        "https://github.com/${CFS_REPO}/releases/download/v${CFS_VERSION}/cockpit-file-sharing_${CFS_VERSION}-1jammy_all.deb"
+    apt-get install -y /tmp/cockpit-file-sharing.deb
+    rm -f /tmp/cockpit-file-sharing.deb
+else
+    log "cockpit-file-sharing already installed, skipping"
+fi
 
 # --- DiskWeaver --------------------------------------------------------------
 if ! dpkg -s diskweaver >/dev/null 2>&1; then
