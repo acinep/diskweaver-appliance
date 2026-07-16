@@ -1,11 +1,16 @@
 #!/bin/bash
-# Idempotent post-install provisioning for a DiskWeaver NAS appliance.
-# Run as root (autoinstall's late-commands do this inside the target
-# chroot; run manually the same way if provisioning an already-installed
-# box). Safe to re-run -- every step checks current state first.
+# Post-install provisioning for a DiskWeaver NAS appliance. Run as root on
+# a normal, manually-installed Ubuntu Server box (the stock installer
+# already handled your user/password/SSH -- nothing here touches that):
+#
+#   curl -sSL https://raw.githubusercontent.com/acinep/diskweaver-appliance/master/provision/provision.sh | sudo bash
+#
+# Idempotent -- every step checks current state first, safe to re-run.
 set -euo pipefail
 
 DISKWEAVER_REPO="acinep/DiskWeaver"
+APPLIANCE_REPO="acinep/diskweaver-appliance"
+APPLIANCE_RAW="https://raw.githubusercontent.com/${APPLIANCE_REPO}/master/provision"
 GARAGE_VERSION="v2.3.0"
 
 log() { echo "[provision] $*"; }
@@ -50,10 +55,15 @@ else
     log "garage already installed, skipping"
 fi
 
-mkdir -p /etc/garage /var/lib/garage/meta /var/lib/garage/data
+mkdir -p /var/lib/garage/meta /var/lib/garage/data
 if [ ! -f /etc/garage.toml ]; then
-    log "writing garage config from template (edit rpc_secret before first boot!)"
-    cp "$(dirname "$0")/garage.toml.tmpl" /etc/garage.toml
+    log "writing garage config with a freshly generated rpc_secret"
+    curl -sSL "${APPLIANCE_RAW}/garage.toml.tmpl" \
+        | sed "s/REPLACE_ME_GENERATE_WITH_openssl_rand_hex_32/$(openssl rand -hex 32)/" \
+        > /etc/garage.toml
+    chmod 600 /etc/garage.toml
+else
+    log "/etc/garage.toml already exists, leaving it alone"
 fi
 
 if [ ! -f /etc/systemd/system/garage.service ]; then
@@ -74,11 +84,7 @@ EOF
     systemctl daemon-reload
 fi
 
-systemctl enable garage.service
-# Not starting garage yet -- /etc/garage.toml still has a placeholder
-# rpc_secret (see the template's own comment) that needs a real value
-# before this is safe to bring up.
+systemctl enable --now garage.service
 
-log "done. Remaining manual steps:"
-log "  - generate a real rpc_secret and edit /etc/garage.toml, then: systemctl start garage"
+log "done. Remaining manual step:"
 log "  - sudo usermod -aG diskweaver <your-user>, then log out/in to Cockpit"

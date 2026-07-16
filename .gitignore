@@ -1,7 +1,3 @@
-# Real per-install secrets rendered from the *.tmpl files -- never commit
-# a password hash, rpc_secret, or SSH key alongside the templates.
-autoinstall/user-data
-autoinstall/user-data.local
-/etc/garage.toml
+# provision.sh renders /etc/garage.toml on the target machine, never in
+# this repo -- but just in case anyone renders a copy locally for testing:
 provision/garage.toml
-*.local

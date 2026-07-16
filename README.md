@@ -7,12 +7,15 @@ pooling, 45Drives' `cockpit-file-sharing` for Samba/NFS/S3 management, and
 store.
 
 This is deliberately *not* a respun ISO or a fork of anyone else's
-appliance. It boots stock Ubuntu Server install media and hands it an
-[autoinstall](https://ubuntu.com/server/docs/install/autoinstall) config,
-then a plain shell script installs and configures everything else. If this
-repo disappeared, the result is still just a normal Ubuntu box with
-standard packages on it — nothing here is a special format or a fork to
-maintain.
+appliance. Install stock Ubuntu Server normally (the installer already
+handles your user/password/SSH), then run one script to layer everything
+else on top. If this repo disappeared, the result is still just a normal
+Ubuntu box with standard packages on it — nothing here is a special
+format or a fork to maintain.
+
+```bash
+curl -sSL https://raw.githubusercontent.com/acinep/diskweaver-appliance/master/provision/provision.sh | sudo bash
+```
 
 ## What it lays down
 
@@ -26,53 +29,32 @@ maintain.
 
 ## Layout
 
-- `autoinstall/user-data.tmpl` + `meta-data` — subiquity autoinstall
-  template for unattended Ubuntu Server installs. Late-commands clone this
-  repo into the target and run `provision/provision.sh` in a chroot.
 - `provision/provision.sh` — idempotent post-install script: adds the
   45Drives apt repo, installs Cockpit + `cockpit-file-sharing`, installs
   the latest DiskWeaver `.deb` release, installs Garage, enables
-  everything.
+  everything. Self-contained — fetches `garage.toml.tmpl` by URL, so it
+  works piped straight from `curl` with no local checkout needed.
 - `provision/garage.toml.tmpl` — single-node Garage config template.
-
-## Secrets
-
-`*.tmpl` files are committed with placeholders and are never served or run
-as-is — they contain no real credentials. Before an install:
-
-```bash
-cp autoinstall/user-data.tmpl autoinstall/user-data   # gitignored
-```
-
-Fill in, in your local copy only:
-- `identity.password` — hash a throwaway console-recovery password with
-  `mkpasswd --method=SHA-512 --rounds=4096` (SSH is key-only by default,
-  `ssh.allow-pw: false`; this password is just the physical-console
-  fallback).
-- `ssh.authorized-keys` — your real public key(s).
-
-Same pattern for `provision/garage.toml.tmpl`'s `rpc_secret`
-(`openssl rand -hex 32`) once it's rendered to `/etc/garage.toml` on the
-target.
+  `provision.sh` substitutes a freshly generated `rpc_secret`
+  (`openssl rand -hex 32`) into it on first run; the tracked file itself
+  never holds a real secret.
 
 ## Usage
 
-1. Boot the target machine from stock [Ubuntu Server 26.04 LTS install
-   media](https://ubuntu.com/download/server).
-2. At the boot menu, point it at your rendered `autoinstall/user-data`
-   (via a second USB partition, HTTP, or PXE — see Ubuntu's autoinstall
-   docs for the mechanism that fits your setup). Never point it at the
-   `.tmpl` file directly.
-3. Installer runs unattended; on first boot the box has Cockpit, DiskWeaver,
-   `cockpit-file-sharing`, and Garage installed and enabled.
+1. Install stock [Ubuntu Server 26.04 LTS](https://ubuntu.com/download/server)
+   normally — set your own user, password, and SSH keys through the
+   regular installer, same as any other box.
+2. Run the provisioning script:
+   ```bash
+   curl -sSL https://raw.githubusercontent.com/acinep/diskweaver-appliance/master/provision/provision.sh | sudo bash
+   ```
+3. On completion, Cockpit, DiskWeaver, `cockpit-file-sharing`, and Garage
+   are installed and running.
 4. Log into Cockpit, add your user to the `diskweaver` group (see
    [DiskWeaver's deployment doc](../DiskWeaver/docs/deployment.md)), and
    pool your disks from there.
-5. Generate a real `rpc_secret` for `/etc/garage.toml` and
-   `systemctl start garage`.
 
 ## Status
 
-Early scaffold — untested end-to-end. Treat `autoinstall/user-data` and
-`provision/provision.sh` as a starting point to iterate against real
-hardware/VMs, not a finished installer.
+Early scaffold — untested end-to-end. Treat `provision/provision.sh` as a
+starting point to iterate against a real VM/box, not a finished installer.

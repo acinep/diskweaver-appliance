@@ -1,2 +1,0 @@
-# Intentionally empty -- required to exist alongside user-data for
-# cloud-init's NoCloud datasource, but nothing here needs overriding.

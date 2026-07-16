@@ -14,8 +14,8 @@ replication_factor = 1
 
 rpc_bind_addr = "[::]:3901"
 rpc_public_addr = "127.0.0.1:3901"
-# Generate with: openssl rand -hex 32
-# Required before `systemctl start garage` will do anything useful.
+# provision.sh substitutes this placeholder with a fresh `openssl rand
+# -hex 32` value on first run -- never a real secret in this tracked file.
 rpc_secret = "REPLACE_ME_GENERATE_WITH_openssl_rand_hex_32"
 
 [s3_api]
