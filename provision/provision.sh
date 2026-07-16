@@ -88,7 +88,7 @@ Description=Garage S3-compatible object store
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/garage server -c /etc/garage.toml
+ExecStart=/usr/local/bin/garage -c /etc/garage.toml server
 Restart=on-failure
 User=root
 
