@@ -103,15 +103,24 @@ else
 fi
 
 mkdir -p /var/lib/garage/meta /var/lib/garage/data
+groupadd -f garage
 if [ ! -f /etc/garage.toml ]; then
     log "writing garage config with a freshly generated rpc_secret"
     curl -sSL "${APPLIANCE_RAW}/garage.toml.tmpl" \
         | sed "s/REPLACE_ME_GENERATE_WITH_openssl_rand_hex_32/$(openssl rand -hex 32)/" \
         > /etc/garage.toml
-    chmod 600 /etc/garage.toml
 else
     log "/etc/garage.toml already exists, leaving it alone"
 fi
+# cockpit-file-sharing's Garage adapter (garageCliAdapter.ts) never passes
+# { superuser: "try" } to Cockpit the way its own iSCSI tab does -- it
+# always runs `garage status`/`bucket list` as your unprivileged Cockpit
+# login user, no matter the Administrative Access toggle. World-readable
+# would work around that too, but this file holds rpc_secret, so group-
+# readable + group membership instead (same pattern as DiskWeaver's own
+# `diskweaver` group -- see docs/deployment.md).
+chgrp garage /etc/garage.toml
+chmod 640 /etc/garage.toml
 
 if [ ! -f /etc/systemd/system/garage.service ]; then
     log "installing garage systemd unit"
@@ -133,5 +142,6 @@ fi
 
 systemctl enable --now garage.service
 
-log "done. Remaining manual step:"
+log "done. Remaining manual steps:"
 log "  - sudo usermod -aG diskweaver <your-user>, then log out/in to Cockpit"
+log "  - sudo usermod -aG garage <your-user>, then log out/in to Cockpit (needed for the S3 tab)"
