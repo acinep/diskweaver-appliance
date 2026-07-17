@@ -8,6 +8,12 @@
 # Idempotent -- every step checks current state first, safe to re-run.
 set -euo pipefail
 
+# apt-get -y only auto-answers the "proceed?" confirmation -- it doesn't
+# suppress debconf's own interactive prompts (msmtp's postinst pops an
+# AppArmor-profile debconf dialog, for one), which otherwise block this
+# script indefinitely waiting on a screen nobody's watching.
+export DEBIAN_FRONTEND=noninteractive
+
 DISKWEAVER_REPO="acinep/DiskWeaver"
 APPLIANCE_REPO="acinep/diskweaver-appliance"
 APPLIANCE_RAW="https://raw.githubusercontent.com/${APPLIANCE_REPO}/master/provision"
