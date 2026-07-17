@@ -51,6 +51,15 @@ jobs:
 
       - name: Build
         working-directory: cockpit-zfs
+        # Upstream builds on private infra with a Node version we can't
+        # see, so this runner's Node ends up computing a different
+        # builtin<compat/resolve> patch hash than their committed
+        # yarn.lock -- Yarn's immutable-install check (default under
+        # GitHub Actions' CI=true) then refuses to proceed. We're not
+        # contributing back to their lockfile, just building an ephemeral
+        # artifact once, so let Yarn update it in place instead.
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
         run: make
 
       - name: Install into staging root
