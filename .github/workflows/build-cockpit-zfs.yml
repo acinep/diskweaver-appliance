@@ -44,6 +44,11 @@ jobs:
       - name: Enable corepack (yarn)
         run: corepack enable
 
+      - name: Install build deps
+        # cockpit-zfs's bootstrap.sh shells out to `sponge` (moreutils),
+        # not present on the default runner image.
+        run: sudo apt-get update && sudo apt-get install -y moreutils
+
       - name: Build
         working-directory: cockpit-zfs
         run: make
