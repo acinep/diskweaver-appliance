@@ -51,7 +51,14 @@ fi
 # Node/Yarn/make touches this box, just zfsutils-linux and the plugin's
 # plain runtime deps.
 log "installing zfsutils-linux + cockpit-zfs runtime deps"
-apt-get install -y zfsutils-linux python3-libzfs python3-dateutil sqlite3 jq msmtp
+apt-get install -y zfsutils-linux python3-dateutil sqlite3 jq msmtp
+# python3-libzfs is optional -- cockpit-zfs falls back to plain `zpool`/
+# `zfs` CLI calls for core functionality (pools, vdevs, scrub/resilver
+# status) when it's missing, so a missing package here shouldn't abort
+# provisioning, just lose some of the plugin's richer/faster paths.
+if ! apt-get install -y python3-libzfs; then
+    log "python3-libzfs unavailable, cockpit-zfs will use its CLI fallback"
+fi
 
 if [ ! -d /usr/share/cockpit/zfs ]; then
     log "installing cockpit-zfs ${ZFS_PLUGIN_VERSION}"
