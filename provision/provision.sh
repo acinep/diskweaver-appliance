@@ -30,6 +30,16 @@ apt-get update
 log "installing cockpit"
 apt-get install -y cockpit mdadm lvm2 parted
 
+# udisks2's LVM2/btrfs support ships as separate loadable modules, not
+# baked into the base package -- without them, udisksd logs "Error
+# initializing module" on every boot and Cockpit's Storage page (plus
+# anything built on udisksd, like cockpit-zfs's device picker) can't see
+# LVM volumes or btrfs filesystems at all. iSCSI has no such fix: Debian/
+# Ubuntu's udisks2 build doesn't compile iscsi support in at all, so that
+# module warning is permanent and not something a package install fixes.
+apt-get install -y udisks2-lvm2 udisks2-btrfs btrfs-progs
+systemctl restart udisks2
+
 systemctl enable --now cockpit.socket
 
 # --- cockpit-file-sharing ------------------------------------------------
