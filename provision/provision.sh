@@ -38,6 +38,17 @@ apt-get install -y cockpit mdadm lvm2 parted
 # Ubuntu's udisks2 build doesn't compile iscsi support in at all, so that
 # module warning is permanent and not something a package install fixes.
 apt-get install -y udisks2-lvm2 udisks2-btrfs btrfs-progs
+
+# The udisks2 lvm2 module above only loads the *bridge* -- it still talks
+# to LVM over D-Bus via a separate daemon, lvmdbusd (package lvm2-dbusd),
+# which isn't pulled in automatically. Without it, the module loads with
+# no error at all (nothing to log against), but udisksd has no LVM
+# backend to query, so Cockpit's Storage page silently shows zero VGs/LVs
+# -- confirmed live: `udisksctl status` listed only raw disks until this
+# was installed and enabled.
+apt-get install -y lvm2-dbusd
+systemctl enable --now lvm2-lvmdbusd
+
 systemctl restart udisks2
 
 systemctl enable --now cockpit.socket
