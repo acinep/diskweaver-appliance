@@ -98,19 +98,31 @@ else
 fi
 
 # --- DiskWeaver --------------------------------------------------------------
-if ! dpkg -s diskweaver >/dev/null 2>&1; then
-    log "installing latest DiskWeaver release"
-    DEB_URL=$(curl -sSL "https://api.github.com/repos/${DISKWEAVER_REPO}/releases/latest" \
-        | grep -o 'https://[^"]*\.deb' | head -n1)
-    if [ -z "$DEB_URL" ]; then
-        log "ERROR: no .deb asset found on latest ${DISKWEAVER_REPO} release"
-        exit 1
-    fi
+# Unlike Garage/cockpit-file-sharing/cockpit-zfs above (pinned to a fixed version -- this is
+# *our own* project, so "latest" is meant literally: always compares the installed package
+# against whatever GitHub currently reports as the latest release and upgrades if they differ,
+# rather than only ever installing once on a bare box. The package's dpkg Version field is always
+# exactly the git tag with its leading "v" stripped (scripts/build-deb.sh in the DiskWeaver repo),
+# so a plain string comparison against the release tag is enough -- no epoch/revision suffix to
+# account for.
+log "checking DiskWeaver version"
+LATEST_RELEASE_JSON=$(curl -sSL "https://api.github.com/repos/${DISKWEAVER_REPO}/releases/latest")
+DEB_URL=$(echo "$LATEST_RELEASE_JSON" | grep -o 'https://[^"]*\.deb' | head -n1)
+LATEST_TAG=$(echo "$LATEST_RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
+if [ -z "$DEB_URL" ] || [ -z "$LATEST_TAG" ]; then
+    log "ERROR: could not determine the latest ${DISKWEAVER_REPO} release (no .deb asset or tag_name found)"
+    exit 1
+fi
+LATEST_VERSION="${LATEST_TAG#v}"
+INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' diskweaver 2>/dev/null || true)
+
+if [ "$INSTALLED_VERSION" = "$LATEST_VERSION" ]; then
+    log "diskweaver $INSTALLED_VERSION already matches latest ($LATEST_TAG), skipping"
+else
+    log "installing DiskWeaver $LATEST_TAG${INSTALLED_VERSION:+ (currently $INSTALLED_VERSION)}"
     curl -sSL -o /tmp/diskweaver.deb "$DEB_URL"
     apt-get install -y /tmp/diskweaver.deb
     rm -f /tmp/diskweaver.deb
-else
-    log "diskweaver already installed, skipping"
 fi
 
 # --- Garage (S3-compatible object store) ------------------------------------
