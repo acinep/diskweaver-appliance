@@ -1,0 +1,12 @@
+/* Same fix as DiskWeaver.Cockpit's overrides.css: .pf-v6-c-page's "main" grid item defaults to
+   min-width:auto, so wide table content can blow past the viewport and widen the whole page grid.
+   Forcing both to 0 lets the 1fr track win and .pf-v6-c-page__main's own overflow:auto scroll
+   internally instead. */
+.pf-v6-c-page__main-container,
+.pf-v6-c-page__main {
+    min-width: 0;
+}
+
+.table-scroll {
+    overflow-x: auto;
+}

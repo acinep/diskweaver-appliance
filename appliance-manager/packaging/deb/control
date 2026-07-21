@@ -1,0 +1,15 @@
+Package: appliance-manager
+Version: @VERSION@
+Section: admin
+Priority: optional
+Architecture: amd64
+Maintainer: DiskWeaver Project <noel.phillips@gmail.com>
+Depends: cockpit-bridge
+Description: Cockpit UI for appliance-level services (Garage buckets/keys, and future components)
+ Appliance Manager complements DiskWeaver (disk pooling) with the
+ appliance-level services built on top of it -- starting with Garage
+ S3 bucket/access-key management, with Samba/NFS/rsync management
+ planned. Exposed over a Unix-socket HTTP API and a Cockpit plugin.
+ Assumes Garage itself is already installed/configured (see
+ provision/provision.sh) -- not expressed as a dpkg dependency since
+ Garage isn't installed via apt/dpkg.

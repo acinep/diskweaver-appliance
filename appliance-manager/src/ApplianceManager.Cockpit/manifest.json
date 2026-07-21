@@ -1,0 +1,12 @@
+{
+    "name": "appliance-manager",
+    "requires": {
+        "cockpit": "265"
+    },
+    "menu": {
+        "index": {
+            "label": "Appliance Manager",
+            "order": 51
+        }
+    }
+}

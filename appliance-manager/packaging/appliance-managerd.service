@@ -1,0 +1,23 @@
+[Unit]
+Description=Appliance Manager daemon (Garage buckets/keys, and future components)
+After=local-fs.target garage.service
+Wants=garage.service
+
+[Service]
+Type=simple
+User=root
+# Group+UMask (not User) control the Unix socket's on-disk permissions, same reasoning as
+# DiskWeaver's own diskweaverd.service: Kestrel's ListenUnixSocket() does a plain bind(), which
+# picks up whatever the process's umask/gid are at that moment. Root is still needed to shell out
+# to `garage` (reads /etc/garage.toml, group-readable only -- see provision.sh's Garage section)
+# and, once Samba/NFS/rsync components land, to manage their configs/services too.
+Group=appliance-manager
+UMask=0007
+WorkingDirectory=/usr/lib/appliance-manager
+ExecStart=/usr/lib/appliance-manager/ApplianceManager.Daemon
+Restart=on-failure
+Environment=APPLIANCEMANAGER_SOCKET=/run/appliance-managerd.sock
+RuntimeDirectory=appliance-managerd
+
+[Install]
+WantedBy=multi-user.target

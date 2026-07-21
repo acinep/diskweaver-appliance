@@ -1,0 +1,23 @@
+#!/bin/sh
+# postinst: only runs the "configure" step (fresh install or upgrade) -- see Debian policy 6.5.
+# Mirrors DiskWeaver's own packaging/deb/postinst: create the socket-owning group, then
+# (re)start the service so both fresh installs and upgrades end up running the newly-unpacked
+# binary.
+set -e
+
+if [ "$1" = "configure" ]; then
+    groupadd -f appliance-manager
+
+    systemctl daemon-reload
+    systemctl enable appliance-managerd.service
+    systemctl restart appliance-managerd.service
+
+    # groupadd above only creates the group -- it can't know which login(s) will actually use
+    # Cockpit, so membership has to be granted explicitly, or every action in the UI fails with a
+    # "Permission denied" on the socket that gives no hint why.
+    echo "appliance-manager: add Cockpit users to the 'appliance-manager' group to grant access, e.g.:"
+    echo "  sudo usermod -aG appliance-manager <your-user>"
+    echo "  (then log out and back in to Cockpit for it to take effect)"
+fi
+
+exit 0

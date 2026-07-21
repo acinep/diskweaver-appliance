@@ -1,0 +1,97 @@
+name: build-appliance-manager
+
+# Scoped to appliance-manager/ changes (via paths:) and its own tag prefix (appliance-manager-v*)
+# -- this repo also hosts provision.sh and the cockpit-zfs rebuild workflow, neither of which this
+# should run for. Mirrors DiskWeaver's own .github/workflows/build.yml pattern (test+build on every
+# push/PR, .deb package as an artifact, tag-triggered release) since Appliance Manager is *our own*
+# project the same way DiskWeaver is -- not a third-party rebuild like cockpit-zfs.
+
+on:
+  push:
+    branches: [main]
+    tags: ["appliance-manager-v*"]
+    paths:
+      - "appliance-manager/**"
+      - ".github/workflows/build-appliance-manager.yml"
+  pull_request:
+    paths:
+      - "appliance-manager/**"
+      - ".github/workflows/build-appliance-manager.yml"
+  workflow_dispatch:
+
+jobs:
+  build-test-package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: appliance-manager/src/ApplianceManager.Cockpit/package-lock.json
+
+      # clang+zlib1g-dev are ILCompiler's native toolchain for the AOT publish step below -- same
+      # dependency DiskWeaver's own workflow installs for the same reason.
+      - name: Install native AOT build dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Restore and test .NET solution
+        run: dotnet test appliance-manager/ApplianceManager.slnx -c Release
+
+      - name: Build Cockpit plugin
+        working-directory: appliance-manager/src/ApplianceManager.Cockpit
+        run: |
+          npm ci
+          npm run build
+
+      # Not just an optimization check -- see DiskWeaver's own workflow comment: PublishAot has
+      # already caught real bugs at publish time that `dotnet test` alone didn't.
+      - name: Verify daemon publishes under NativeAOT
+        run: dotnet publish appliance-manager/src/ApplianceManager.Daemon -c Release -r linux-x64 --self-contained -o /tmp/appliance-manager-aot-check
+
+      # Real version on an appliance-manager-v* tag push (appliance-manager-v0.1.0 -> 0.1.0); every
+      # other trigger gets a throwaway version tied to the run number -- never meant to be
+      # installed anywhere, just proves the package still builds.
+      - name: Determine package version
+        id: version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "value=${GITHUB_REF_NAME#appliance-manager-v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=0.0.0-ci.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build .deb package
+        run: appliance-manager/build-deb.sh "${{ steps.version.outputs.value }}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: appliance-manager-deb
+          path: appliance-manager/dist/*.deb
+
+  # Only appliance-manager-v* tag pushes get a real, permanent, publicly-downloadable release --
+  # split into its own job so contents: write is only ever granted for those, never for ordinary
+  # PR/branch builds. Same reasoning as DiskWeaver's own release job.
+  release:
+    needs: build-test-package
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: appliance-manager-deb
+          path: dist
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ github.ref_name }}" dist/*.deb --title "${{ github.ref_name }}" --generate-notes

@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Appliance Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!--
+        ?v=N cache-busts dist/app.css/dist/app.js the same way DiskWeaver.Cockpit's index.html
+        does -- cockpit-bridge sends no Cache-Control/ETag for package files, so without a
+        changing URL the browser can keep serving a stale copy indefinitely after an edit. Bump
+        the number on BOTH tags below after every `npm run build`.
+    -->
+    <link rel="stylesheet" href="dist/app.css?v=1">
+</head>
+<body>
+    <div id="app"></div>
+
+    <script src="../base1/cockpit.js"></script>
+    <script src="dist/app.js?v=1"></script>
+</body>
+</html>

@@ -71,6 +71,35 @@ else
     log "cockpit-file-sharing already installed, skipping"
 fi
 
+# cockpit-file-sharing ${CFS_VERSION}'s bucket-creation dialog has a real bug specific to
+# the Garage backend: the submit button's disabled state is gated on the validation error
+# of a generic "bucket name" field that's only rendered for Ceph/MinIO/RustFS -- for Garage
+# it renders a *different* name field instead, so the generic one (and its "Bucket name is
+# required" error) never clears, and Create stays permanently disabled no matter what you
+# type. Confirmed live: reproducible with a valid bucket name and a key that has
+# Can-create-buckets=true, i.e. nothing about your own setup can work around it. Patches the
+# built (minified) asset directly rather than waiting on upstream -- glob-matched since
+# esbuild/vite hash the filename per build. Idempotent and self-retiring: if the string isn't
+# found (already patched, or a newer CFS_VERSION ships the upstream fix), this is a no-op.
+log "patching cockpit-file-sharing's Garage bucket-creation button (see script comment)"
+python3 - <<'PYEOF'
+import glob
+
+old = 'disabled:l.value||!!o.value'
+new = 'disabled:l.value||(t.backend!=="garage"&&!!o.value)'
+
+matches = glob.glob('/usr/share/cockpit/file-sharing/assets/index-*.js')
+for path in matches:
+    with open(path, encoding='utf-8') as f:
+        content = f.read()
+    if old in content:
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content.replace(old, new, 1))
+        print(f"[provision]   patched {path}")
+    else:
+        print(f"[provision]   pattern not found in {path} -- already patched or fixed upstream, skipping")
+PYEOF
+
 # --- ZFS + cockpit-zfs ----------------------------------------------------
 # cockpit-zfs ships no prebuilt package anywhere reachable from here (see
 # .github/workflows/build-cockpit-zfs.yml for why), so this pulls a
@@ -175,6 +204,39 @@ fi
 
 systemctl enable --now garage.service
 
+# --- Appliance Manager -------------------------------------------------------
+# Same "latest is meant literally" auto-upgrade approach as the DiskWeaver section above -- this
+# is *our own* project too. The one difference: this repo (${APPLIANCE_REPO}) also publishes
+# cockpit-zfs releases (tagged cockpit-zfs-v*), so GitHub's plain /releases/latest would pick
+# whichever line was published most recently, not specifically the newest appliance-manager one --
+# /releases (the full list, newest first) filtered by tag_name prefix is what's actually needed.
+# Depends on jq, already installed by the ZFS section above.
+log "checking Appliance Manager version"
+LATEST_TAG=$(curl -sSL "https://api.github.com/repos/${APPLIANCE_REPO}/releases" \
+    | jq -r '[.[] | select(.tag_name | startswith("appliance-manager-v"))][0].tag_name // empty')
+if [ -z "$LATEST_TAG" ]; then
+    log "ERROR: no appliance-manager-v* release found in ${APPLIANCE_REPO}"
+    exit 1
+fi
+DEB_URL=$(curl -sSL "https://api.github.com/repos/${APPLIANCE_REPO}/releases/tags/${LATEST_TAG}" \
+    | jq -r '.assets[] | select(.name | endswith(".deb")) | .browser_download_url' | head -n1)
+if [ -z "$DEB_URL" ]; then
+    log "ERROR: release ${LATEST_TAG} has no .deb asset"
+    exit 1
+fi
+LATEST_VERSION="${LATEST_TAG#appliance-manager-v}"
+INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' appliance-manager 2>/dev/null || true)
+
+if [ "$INSTALLED_VERSION" = "$LATEST_VERSION" ]; then
+    log "appliance-manager $INSTALLED_VERSION already matches latest ($LATEST_TAG), skipping"
+else
+    log "installing Appliance Manager $LATEST_TAG${INSTALLED_VERSION:+ (currently $INSTALLED_VERSION)}"
+    curl -sSL -o /tmp/appliance-manager.deb "$DEB_URL"
+    apt-get install -y /tmp/appliance-manager.deb
+    rm -f /tmp/appliance-manager.deb
+fi
+
 log "done. Remaining manual steps:"
 log "  - sudo usermod -aG diskweaver <your-user>, then log out/in to Cockpit"
 log "  - sudo usermod -aG garage <your-user>, then log out/in to Cockpit (needed for the S3 tab)"
+log "  - sudo usermod -aG appliance-manager <your-user>, then log out/in to Cockpit (needed for the Appliance Manager tab)"

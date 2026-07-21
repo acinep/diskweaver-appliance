@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src/ApplianceManager.Core/ApplianceManager.Core.csproj" />
+  <Project Path="src/ApplianceManager.Core.Tests/ApplianceManager.Core.Tests.csproj" />
+  <Project Path="src/ApplianceManager.Daemon/ApplianceManager.Daemon.csproj" />
+  <Project Path="src/ApplianceManager.Daemon.Tests/ApplianceManager.Daemon.Tests.csproj" />
+</Solution>
