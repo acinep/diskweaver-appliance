@@ -28,5 +28,11 @@ export function apiPostJson(path, jsonBody) {
 }
 
 export function apiDeleteJson(path) {
-    return apiRequest("DELETE", path).then(JSON.parse);
+    // Unlike GET/POST, not every DELETE endpoint returns a body -- e.g. DELETE /garage/keys/{id}
+    // and DELETE /garage/buckets/{name} respond with a bare 200 and an empty body, while DELETE
+    // .../grants/{keyId} (a revoke) returns the updated GarageBucket as real JSON. JSON.parse("")
+    // throws, which used to surface as an error banner even though the delete had already
+    // succeeded server-side (the daemon runs it before ever writing the response) -- so an empty
+    // body is treated as "no result" here instead of being handed to JSON.parse.
+    return apiRequest("DELETE", path).then(text => (text ? JSON.parse(text) : null));
 }

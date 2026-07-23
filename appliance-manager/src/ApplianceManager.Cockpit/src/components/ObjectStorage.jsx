@@ -15,11 +15,17 @@ import { KeysPanel } from "./KeysPanel.jsx";
 export function ObjectStorage() {
     const [buckets, setBuckets] = useState([]);
     const [keys, setKeys] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // Only gates the *first* load's spinner -- every later reload (triggered by a child panel's
+    // onChanged, e.g. after creating a key/bucket or toggling a grant) must NOT flip this back to
+    // true. Doing so used to swap the whole <BucketsPanel>/<KeysPanel> tree out for a bare
+    // <Spinner>, unmounting both -- which silently destroyed KeysPanel's own local state along with
+    // it, including the freshly-created key's one-time secret modal (set via setCreatedKey right
+    // before onChanged() fired in the very same .then()). The modal was created and torn down in
+    // the same render batch, so the secret was never actually shown. See KeysPanel's createdKey.
+    const [initialLoading, setInitialLoading] = useState(true);
     const [error, setError] = useState(null);
 
     const reload = useCallback(() => {
-        setLoading(true);
         setError(null);
         return Promise.all([apiGetJson("/garage/buckets"), apiGetJson("/garage/keys")])
             .then(([bucketsResult, keysResult]) => {
@@ -27,7 +33,7 @@ export function ObjectStorage() {
                 setKeys(keysResult);
             })
             .catch(err => setError(err.message || String(err)))
-            .finally(() => setLoading(false));
+            .finally(() => setInitialLoading(false));
     }, []);
 
     useEffect(() => { reload(); }, [reload]);
@@ -35,7 +41,7 @@ export function ObjectStorage() {
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--pf-t--global--spacer--lg)" }}>
             <ErrorBanner message={error} />
-            {loading
+            {initialLoading
                 ? <Spinner size="md" />
                 : (
                     <>
